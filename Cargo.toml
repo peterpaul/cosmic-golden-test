@@ -1,0 +1,22 @@
+[package]
+name = "cosmic-golden"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[workspace]
+members = [
+  ".",
+  "golden-macros",
+]
+resolver = "3"
+
+[dependencies]
+futures = "0.3.32"
+png = "0.18"
+
+cosmic-golden-macros = { path = "golden-macros" }
+
+[dependencies.libcosmic]
+git = "https://github.com/pop-os/libcosmic.git"
+default-features = false
