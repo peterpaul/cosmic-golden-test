@@ -19,3 +19,8 @@ fn button_label() -> cosmic::Element<'_, ()> {
 fn button_label_dark() -> cosmic::Element<'_, ()> {
     cosmic::widget::button::standard("Click me").into()
 }
+
+#[golden_test(320, 60)]
+fn monospace_text_hello_world() -> cosmic::Element<'_, ()> {
+    cosmic::widget::text::monotext("Hello, world!").into()
+}

@@ -122,6 +122,7 @@ fn golden_test_impl(attr: TokenStream, item: TokenStream) -> Result<TokenStream,
     Ok(quote! {
         #[test]
         fn #func_name() {
+            cosmic_golden::init();
             #(#setup_stmts)*
             let element: #return_type = #element_expr;
             let mut renderer = cosmic_golden::HeadlessRenderer::with_theme(#theme_expr);

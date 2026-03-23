@@ -42,6 +42,7 @@
 //! `rstest` for parameterised cases.
 //!
 //! ```rust,no_run
+//! cosmic_golden::init();
 //! let element: cosmic::Element<'_, ()> = cosmic::widget::text("Hello").into();
 //! cosmic_golden::assert_snapshot!("my_widget", element, 320, 60);
 //! ```
@@ -55,6 +56,7 @@
 //! ```rust,no_run
 //! use cosmic_golden::{HeadlessRenderer, assert_snapshot_rgba};
 //!
+//! cosmic_golden::init();
 //! let mut r = HeadlessRenderer::with_theme(cosmic::Theme::dark());
 //! let element: cosmic::Element<'_, ()> = cosmic::widget::text("Hello").into();
 //! let rgba = r.render(element, 320, 60);
@@ -75,6 +77,7 @@ pub mod snapshot;
 
 pub use cosmic_golden_macros::golden_test;
 pub use renderer::HeadlessRenderer;
+pub use renderer::init;
 
 /// Compare pre-rendered RGBA bytes against the stored PNG baseline.
 ///
@@ -144,9 +147,17 @@ macro_rules! assert_snapshot_rgba {
 /// For dark-theme tests or other custom themes, use `#[golden_test(w, h, dark)]`
 /// or construct a [`HeadlessRenderer`] with [`HeadlessRenderer::with_theme`] directly.
 ///
+/// # Environment isolation
+///
+/// **Call [`init()`] at the top of the test before building any element.**
+/// Cosmic widget constructors read the Cosmic Desktop font config; `init()`
+/// redirects that config to a known-good isolated state. The `#[golden_test]`
+/// macro does this automatically.
+///
 /// # Usage
 ///
 /// ```rust,no_run
+/// cosmic_golden::init();
 /// let element: cosmic::Element<'_, ()> = cosmic::widget::text("Hello").into();
 /// cosmic_golden::assert_snapshot!("my_widget", element, 320, 60);
 /// ```
