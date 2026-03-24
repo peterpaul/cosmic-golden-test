@@ -1,15 +1,102 @@
+use std::borrow::Cow;
+use std::sync::OnceLock;
+
 use cosmic::Element;
 use cosmic::Renderer;
 use cosmic::Theme;
+use cosmic::config::CosmicTk;
+use cosmic::config::FontConfig;
+use cosmic::cosmic_config;
+use cosmic::cosmic_config::CosmicConfigEntry;
 use cosmic::iced_core::Font;
 use cosmic::iced_core::Pixels;
 use cosmic::iced_core::Size;
+use cosmic::iced_core::font;
 use cosmic::iced_core::mouse;
 use cosmic::iced_core::renderer;
 use cosmic::iced_core::renderer::Headless;
 use cosmic::iced_core::theme;
 use cosmic::iced_runtime::UserInterface;
 use cosmic::iced_runtime::user_interface;
+use cosmic::iced_widget::graphics::text::font_system;
+
+/// The bundled font used for all headless rendering.
+///
+/// Cosmic widgets call `cosmic::font::default()` on every render, which reads
+/// the Cosmic Desktop config (`COSMIC_TK`, a `LazyLock`). To prevent the host
+/// machine's font settings from affecting snapshot output we redirect
+/// `XDG_CONFIG_HOME` to an isolated directory and write our desired `CosmicTk`
+/// there *before* the `LazyLock` first initializes. When widgets later trigger
+/// initialization, `Config::new` reads from our isolated directory instead of
+/// the real user config.
+///
+/// We also embed Noto Sans / Noto Sans Mono (SIL OFL 1.1) and register them in
+/// the global `FontSystem` so the family names always resolve to known bytes.
+static BUNDLED_SANS: &[u8] = include_bytes!("../fonts/NotoSans-Regular.ttf");
+static BUNDLED_MONO: &[u8] = include_bytes!("../fonts/NotoSansMono-Regular.ttf");
+
+const BUNDLED_SANS_FAMILY: &str = "Noto Sans";
+const BUNDLED_MONO_FAMILY: &str = "Noto Sans Mono";
+
+/// Isolates the Cosmic Desktop configuration for golden tests.
+///
+/// Must be called **before any widget is constructed** — widget constructors
+/// call `cosmic::font::default()`, which triggers `COSMIC_TK`'s `LazyLock`
+/// to initialize from the real Cosmic Desktop config if it hasn't run yet.
+///
+/// The `#[golden_test]` macro inserts this call automatically. When using
+/// `assert_snapshot!` or `assert_snapshot_rgba!` directly, call this at the
+/// top of the test before building any elements.
+pub fn init() {
+    setup_temporary_test_configuration();
+}
+
+fn setup_temporary_test_configuration() {
+    static LOADED: OnceLock<()> = OnceLock::new();
+    LOADED.get_or_init(|| {
+        // Point XDG_CONFIG_HOME at an isolated directory so that COSMIC_TK's
+        // LazyLock (which calls Config::new → dirs::config_dir() → $XDG_CONFIG_HOME)
+        // reads from here rather than the real user config.
+        let config_dir = std::env::temp_dir().join("cosmic-golden-isolated-config");
+        // SAFETY: single-threaded at this point (OnceLock guarantees one caller).
+        unsafe { std::env::set_var("XDG_CONFIG_HOME", &config_dir) };
+
+        // Write a default CosmicTk to the isolated directory.
+        // with_custom_path creates: <config_dir>/cosmic/com.system76.CosmicTk/v1/
+        let config = cosmic_config::Config::with_custom_path(
+            "com.system76.CosmicTk",
+            CosmicTk::VERSION,
+            config_dir,
+        )
+        .expect("create isolated CosmicTk config");
+
+        let mut cosmic_tk = CosmicTk::get_entry(&config).unwrap_or_default();
+        cosmic_tk.interface_font = FontConfig {
+            family: BUNDLED_SANS_FAMILY.to_owned(),
+            weight: font::Weight::Normal,
+            stretch: font::Stretch::Normal,
+            style: font::Style::Normal,
+        };
+        cosmic_tk.monospace_font = FontConfig {
+            family: BUNDLED_MONO_FAMILY.to_owned(),
+            weight: font::Weight::Normal,
+            stretch: font::Stretch::Normal,
+            style: font::Style::Normal,
+        };
+        cosmic_tk
+            .write_entry(&config)
+            .expect("write isolated CosmicTk config");
+
+        // Register the bundled font bytes so fontdb resolves the family names
+        // to known bytes regardless of what system fonts are installed.
+        let mut fs = font_system().write().unwrap();
+        fs.load_font(Cow::Borrowed(BUNDLED_SANS));
+        fs.load_font(Cow::Borrowed(BUNDLED_MONO));
+    });
+}
+
+/// Default `Font` passed to the renderer backend — uses the bundled Noto Sans.
+const RENDER_FONT: Font = Font::with_name(BUNDLED_SANS_FAMILY);
 
 /// A headless renderer that draws cosmic widgets to an in-memory RGBA buffer.
 pub struct HeadlessRenderer {
@@ -21,7 +108,7 @@ impl HeadlessRenderer {
     /// Creates a new headless renderer using the tiny-skia software backend and the light theme.
     pub fn new() -> Self {
         let renderer = futures::executor::block_on(<Renderer as Headless>::new(
-            Font::DEFAULT,
+            RENDER_FONT,
             Pixels(16.0),
             Some("tiny-skia"),
         ))
