@@ -1,6 +1,11 @@
 [package]
 name = "cosmic-golden"
+description = "Golden image testing for libcosmic"
+homepage = "https://github.com/peterpaul/cosmic-golden-test"
+repository = "https://github.com/peterpaul/cosmic-golden-test"
+readme = "README.md"
 version = "0.1.0"
+authors = ["Peterpaul Klein Haneveld <pp.kleinhaneveld@gmail.com>"]
 edition = "2024"
 license = "MIT"
 
