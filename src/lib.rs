@@ -151,8 +151,9 @@ macro_rules! assert_snapshot_rgba {
 ///
 /// **Call [`init()`] at the top of the test before building any element.**
 /// Cosmic widget constructors read the Cosmic Desktop font config; `init()`
-/// redirects that config to a known-good isolated state. The `#[golden_test]`
-/// macro does this automatically.
+/// isolates that config and registers bundled fonts so rendering is identical
+/// across machines regardless of desktop settings or installed fonts. The
+/// `#[golden_test]` macro does this automatically.
 ///
 /// # Usage
 ///
