@@ -63,3 +63,59 @@ pub fn diff_image(a: &[u8], b: &[u8]) -> Vec<u8> {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn count_differing_pixels_identical() {
+        let rgba = vec![255u8, 0, 0, 255, 0, 255, 0, 255];
+        assert_eq!(count_differing_pixels(&rgba, &rgba), 0);
+    }
+
+    #[test]
+    fn count_differing_pixels_one_different() {
+        let a = vec![255u8, 0, 0, 255, 0, 255, 0, 255];
+        let b = vec![255u8, 0, 0, 255, 255, 0, 0, 255];
+        assert_eq!(count_differing_pixels(&a, &b), 1);
+    }
+
+    #[test]
+    fn count_differing_pixels_all_different() {
+        let a = vec![255u8, 0, 0, 255, 0, 255, 0, 255];
+        let b = vec![0u8, 255, 0, 255, 255, 0, 0, 255];
+        assert_eq!(count_differing_pixels(&a, &b), 2);
+    }
+
+    #[test]
+    fn diff_image_identical_pixels_are_black() {
+        let rgba = vec![100u8, 150, 200, 255, 50, 60, 70, 128];
+        let diff = diff_image(&rgba, &rgba);
+        assert_eq!(diff, vec![0, 0, 0, 255, 0, 0, 0, 255]);
+    }
+
+    #[test]
+    fn diff_image_amplifies_by_10() {
+        let a = vec![10u8, 0, 0, 255];
+        let b = vec![20u8, 0, 0, 255];
+        let diff = diff_image(&a, &b);
+        assert_eq!(diff, vec![100, 0, 0, 255]);
+    }
+
+    #[test]
+    fn diff_image_channel_saturates_at_255() {
+        let a = vec![0u8, 0, 0, 255];
+        let b = vec![255u8, 0, 0, 255];
+        let diff = diff_image(&a, &b);
+        assert_eq!(diff, vec![255, 0, 0, 255]);
+    }
+
+    #[test]
+    fn diff_image_alpha_always_255() {
+        let a = vec![0u8, 0, 0, 0];
+        let b = vec![0u8, 0, 0, 128];
+        let diff = diff_image(&a, &b);
+        assert_eq!(diff[3], 255);
+    }
+}

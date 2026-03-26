@@ -37,14 +37,17 @@
 //! ## `assert_snapshot!(name, element, width, height)`
 //!
 //! Mid-level macro for use inside an existing `#[test]` function. Renders
-//! `element` with the light theme and compares against the baseline. Useful
-//! when a single test needs to produce multiple snapshots, for example with
-//! `rstest` for parameterised cases.
+//! `element` and compares against the baseline. An optional fifth argument
+//! selects the theme: `light` (default) or `dark`. Useful when a single test
+//! needs to produce multiple snapshots, for example with `rstest` for
+//! parameterised cases.
 //!
 //! ```rust,no_run
 //! cosmic_golden::init();
 //! let element: cosmic::Element<'_, ()> = cosmic::widget::text("Hello").into();
-//! cosmic_golden::assert_snapshot!("my_widget", element, 320, 60);
+//! cosmic_golden::assert_snapshot!("my_widget_light", element, 320, 60);
+//! let element: cosmic::Element<'_, ()> = cosmic::widget::text("Hello").into();
+//! cosmic_golden::assert_snapshot!("my_widget_dark",  element, 320, 60, dark);
 //! ```
 //!
 //! ## `assert_snapshot_rgba!(name, rgba, width, height)`
@@ -75,6 +78,7 @@
 pub mod renderer;
 pub mod snapshot;
 
+pub use cosmic::Theme;
 pub use cosmic_golden_macros::golden_test;
 pub use renderer::HeadlessRenderer;
 pub use renderer::init;
@@ -137,15 +141,14 @@ macro_rules! assert_snapshot_rgba {
     }};
 }
 
-/// Assert that rendering `element` with the light theme matches the stored PNG baseline.
+/// Assert that rendering `element` matches the stored PNG baseline.
 ///
 /// The baseline is stored at `snapshots/<module>/<name>.png` relative to
 /// the crate that contains the golden tests.
 ///
-/// Set `UPDATE_SNAPSHOTS=1` to regenerate baselines instead of comparing.
+/// An optional fifth argument selects the theme: `light` (default) or `dark`.
 ///
-/// For dark-theme tests or other custom themes, use `#[golden_test(w, h, dark)]`
-/// or construct a [`HeadlessRenderer`] with [`HeadlessRenderer::with_theme`] directly.
+/// Set `UPDATE_SNAPSHOTS=1` to regenerate baselines instead of comparing.
 ///
 /// # Environment isolation
 ///
@@ -160,12 +163,22 @@ macro_rules! assert_snapshot_rgba {
 /// ```rust,no_run
 /// cosmic_golden::init();
 /// let element: cosmic::Element<'_, ()> = cosmic::widget::text("Hello").into();
-/// cosmic_golden::assert_snapshot!("my_widget", element, 320, 60);
+/// cosmic_golden::assert_snapshot!("my_widget_light", element, 320, 60);
+/// let element: cosmic::Element<'_, ()> = cosmic::widget::text("Hello").into();
+/// cosmic_golden::assert_snapshot!("my_widget_dark",  element, 320, 60, dark);
 /// ```
 #[macro_export]
 macro_rules! assert_snapshot {
-    ($name:expr, $element:expr, $width:expr, $height:expr $(,)?) => {{
+    ($name:expr, $element:expr, $width:expr, $height:expr $(,)?) => {
+        $crate::assert_snapshot!($name, $element, $width, $height, light)
+    };
+    ($name:expr, $element:expr, $width:expr, $height:expr, light $(,)?) => {{
         let mut r = $crate::HeadlessRenderer::new();
+        let rgba = r.render($element, $width, $height);
+        $crate::assert_snapshot_rgba!($name, rgba, $width, $height);
+    }};
+    ($name:expr, $element:expr, $width:expr, $height:expr, dark $(,)?) => {{
+        let mut r = $crate::HeadlessRenderer::with_theme($crate::Theme::dark());
         let rgba = r.render($element, $width, $height);
         $crate::assert_snapshot_rgba!($name, rgba, $width, $height);
     }};

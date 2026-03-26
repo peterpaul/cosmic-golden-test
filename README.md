@@ -59,9 +59,9 @@ at the call site — no manual namespacing is needed.
 ### Using `assert_snapshot!` directly
 
 `assert_snapshot!(name, element, width, height)` renders with the light theme and compares
-against the stored baseline. Use it when you need to produce multiple snapshots from a single
-test function, for example with [`rstest`](https://github.com/la10736/rstest) for
-parameterised cases:
+against the stored baseline. An optional fifth argument selects the theme — `light` (default)
+or `dark`. Use it when you need to produce multiple snapshots from a single test function,
+for example with [`rstest`](https://github.com/la10736/rstest) for parameterised cases:
 
 ```rust
 use golden::assert_snapshot;
@@ -84,7 +84,16 @@ fn text_renders(
 Each case produces its own baseline (`text_hello_world.png`, `text_a_longer_sentence.png`)
 under the test's module path, just like `#[golden_test]` would.
 
-For custom themes or multiple renders in a single test, construct a [`HeadlessRenderer`]
+The optional `dark` theme argument renders with `cosmic::Theme::dark()`:
+
+```rust
+cosmic_golden::init();
+let element: cosmic::Element<'_, ()> = cosmic::widget::text("Hello").into();
+assert_snapshot!("my_widget_light", element, 320, 60);
+assert_snapshot!("my_widget_dark",  element, 320, 60, dark);
+```
+
+For multiple renders in a single test without the macro, construct a [`HeadlessRenderer`]
 directly and use `assert_snapshot_rgba!`:
 
 ```rust
