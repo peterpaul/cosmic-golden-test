@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-03-26
+
 ### Added
 
 - `assert_snapshot!` now accepts an optional theme argument (`light` or `dark`),
@@ -43,5 +45,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   comparing.
 - GitHub Actions CI: build, test, and upload diff artifacts on failure.
 
-[Unreleased]: https://github.com/peterpaul/cosmic-golden-test/compare/0.1.0...HEAD
+[Unreleased]: https://github.com/peterpaul/cosmic-golden-test/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/peterpaul/cosmic-golden-test/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/peterpaul/cosmic-golden-test/releases/tag/0.1.0
