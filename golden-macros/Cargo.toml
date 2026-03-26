@@ -1,7 +1,13 @@
 [package]
 name = "cosmic-golden-macros"
+description = "Golden image testing for libcosmic - macros"
 version = "0.1.0"
 edition = "2024"
+
+homepage = "https://github.com/peterpaul/cosmic-golden-test"
+repository = "https://github.com/peterpaul/cosmic-golden-test"
+authors = ["Peterpaul Klein Haneveld <pp.kleinhaneveld@gmail.com>"]
+license = "MIT"
 
 [lib]
 proc-macro = true
