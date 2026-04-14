@@ -9,16 +9,16 @@ use cosmic::config::FontConfig;
 use cosmic::cosmic_config;
 use cosmic::cosmic_config::CosmicConfigEntry;
 use cosmic::iced::advanced::graphics::text::font_system;
-use cosmic::iced_core::Font;
-use cosmic::iced_core::Pixels;
-use cosmic::iced_core::Size;
-use cosmic::iced_core::font;
-use cosmic::iced_core::mouse;
-use cosmic::iced_core::renderer;
-use cosmic::iced_core::renderer::Headless;
-use cosmic::iced_core::theme;
-use cosmic::iced_runtime::UserInterface;
-use cosmic::iced_runtime::user_interface;
+use cosmic::iced::core::Font;
+use cosmic::iced::core::Pixels;
+use cosmic::iced::core::Size;
+use cosmic::iced::core::font;
+use cosmic::iced::core::mouse;
+use cosmic::iced::core::renderer;
+use cosmic::iced::core::renderer::Headless;
+use cosmic::iced::core::theme;
+use cosmic::iced::runtime::UserInterface;
+use cosmic::iced::runtime::user_interface;
 
 /// Noto Sans Regular (SIL OFL 1.1), used as the interface font in tests.
 static BUNDLED_SANS: &[u8] = include_bytes!("../fonts/NotoSans-Regular.ttf");
