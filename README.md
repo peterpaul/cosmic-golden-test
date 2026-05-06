@@ -12,7 +12,7 @@ The preferred way is the `#[golden_test(width, height)]` attribute macro. Annota
 zero-argument function that returns a `cosmic::Element`:
 
 ```rust
-use golden::golden_test;
+use cosmic_golden::golden_test;
 
 #[golden_test(400, 200)]
 fn my_widget_light() -> cosmic::Element<'_, ()> {
@@ -20,7 +20,7 @@ fn my_widget_light() -> cosmic::Element<'_, ()> {
 }
 ```
 
-An optional third argument selects the theme — `light` (default) or `dark`:
+An optional theme argument selects `light` (default) or `dark`:
 
 ```rust
 #[golden_test(400, 200, dark)]
@@ -29,10 +29,22 @@ fn my_widget_dark() -> cosmic::Element<'_, ()> {
 }
 ```
 
+An optional `events = [...]` argument drives the widget through synthetic mouse
+interactions before the snapshot is taken — useful for overlays such as `combo_box`
+dropdowns or tooltips (see [Testing interactive widgets and overlays](#testing-interactive-widgets-and-overlays)):
+
+```rust
+#[golden_test(320, 200, events = [cosmic_golden::left_click(160.0, 20.0)])]
+fn combo_box_open() -> cosmic::Element<'_, &'static str> {
+    let state = cosmic::widget::combo_box::State::new(vec!["Alpha", "Beta", "Gamma"]);
+    cosmic::widget::combo_box(&state, "Pick an option", None, |s| s).into()
+}
+```
+
 The macro:
 - derives the snapshot name from the **function name**
 - wraps the function body in a `#[test]`
-- renders with the chosen theme and compares against the stored baseline
+- renders with the chosen theme (and optional events) and compares against the stored baseline
 
 Name the function to reflect the theme variant when testing both, so each gets
 its own snapshot file (`my_widget_light.png` / `my_widget_dark.png`).
@@ -110,6 +122,93 @@ fn my_widget_both_themes() {
         let rgba = r.render(element, 400, 200);
         assert_snapshot_rgba!(name, rgba, 400, 200);
     }
+}
+```
+
+## Testing interactive widgets and overlays
+
+Some widgets only show parts of their UI after user interaction. A `combo_box` keeps
+its option list hidden until the embedded text input is focused; a `tooltip` stays
+invisible until the cursor hovers over its content. Because `render` captures the
+widget's initial state, these interactive parts would be absent from the snapshot.
+
+### `events = [...]` on `#[golden_test]`
+
+Pass an `events` array to drive the widget into the desired state before the snapshot
+is taken. Each element must be a `(cosmic_golden::Event, cosmic::iced::core::mouse::Cursor)`
+pair. The convenience functions in `cosmic_golden::events` (re-exported at the crate
+root) cover the common cases:
+
+```rust
+use cosmic_golden::golden_test;
+
+#[golden_test(320, 200, events = [cosmic_golden::left_click(160.0, 20.0)])]
+fn combo_box_open() -> cosmic::Element<'_, &'static str> {
+    let state = cosmic::widget::combo_box::State::new(vec!["Alpha", "Beta", "Gamma"]);
+    cosmic::widget::combo_box(&state, "Pick an option", None, |s| s).into()
+}
+
+#[golden_test(400, 80, events = [cosmic_golden::cursor_move(60.0, 20.0)])]
+fn tooltip_visible() -> cosmic::Element<'_, ()> {
+    use std::time::Duration;
+    let content = cosmic::widget::button::standard("Hover me");
+    let tip = cosmic::widget::text("This is a tooltip");
+    cosmic::widget::tooltip(content, tip, cosmic::widget::tooltip::Position::Right)
+        .delay(Duration::ZERO)
+        .into()
+}
+```
+
+The `events` argument may be combined with a theme:
+
+```rust
+#[golden_test(320, 200, dark, events = [cosmic_golden::left_click(160.0, 20.0)])]
+fn combo_box_open_dark() -> cosmic::Element<'_, &'static str> {
+    // ...
+}
+```
+
+### Event helpers
+
+| Function               | Event produced                                   |
+|------------------------|--------------------------------------------------|
+| `left_click(x, y)`     | `ButtonPressed(Left)` at `(x, y)`                |
+| `right_click(x, y)`    | `ButtonPressed(Right)` at `(x, y)`               |
+| `left_release(x, y)`   | `ButtonReleased(Left)` at `(x, y)`               |
+| `cursor_move(x, y)`    | `CursorMoved { position }` — also used for hover |
+| `scroll(x, y, dx, dy)` | `WheelScrolled` with pixel delta `(dx, dy)`      |
+
+Each returns a `(Event, mouse::Cursor)` pair. Build sequences by passing a slice:
+
+```rust
+&[left_click(160.0, 20.0), cursor_move(160.0, 40.0)]
+```
+
+### Using `render_with_events` directly
+
+For tests that need full control — a custom theme, multiple snapshots from one test,
+or event sequences assembled at runtime — use `HeadlessRenderer::render_with_events`:
+
+```rust
+use cosmic_golden::{HeadlessRenderer, assert_snapshot_rgba, left_click};
+
+#[test]
+fn combo_box_open_and_closed() {
+    cosmic_golden::init();
+
+    // closed state
+    let state = cosmic::widget::combo_box::State::new(vec!["Alpha", "Beta", "Gamma"]);
+    let element: cosmic::Element<'_, &str> =
+        cosmic::widget::combo_box(&state, "Pick an option", None, |s| s).into();
+    let mut r = HeadlessRenderer::new();
+    let rgba = r.render(element, 320, 200);
+    assert_snapshot_rgba!("combo_box_closed", rgba, 320, 200);
+
+    // open state — rebuild element because render consumed it
+    let element: cosmic::Element<'_, &str> =
+        cosmic::widget::combo_box(&state, "Pick an option", None, |s| s).into();
+    let rgba = r.render_with_events(element, 320, 200, &[left_click(160.0, 20.0)]);
+    assert_snapshot_rgba!("combo_box_open", rgba, 320, 200);
 }
 ```
 

@@ -1,6 +1,7 @@
 use cosmic_golden::HeadlessRenderer;
 use cosmic_golden::assert_snapshot;
 use cosmic_golden::assert_snapshot_rgba;
+use cosmic_golden::golden_test;
 
 /// Covers the default (no theme) arm of `assert_snapshot!`, which must
 /// produce the same baseline as the explicit `light` variant.
@@ -46,4 +47,12 @@ fn assert_snapshot_rgba_dark() {
     let element: cosmic::Element<'_, ()> = cosmic::widget::text("assert_snapshot_rgba dark").into();
     let rgba = renderer.render(element, 320, 60);
     assert_snapshot_rgba!("assert_snapshot_rgba_dark", rgba, 320, 60);
+}
+
+/// Covers the `events = [...]` argument: the macro must invoke
+/// `render_with_events` and the snapshot must show the dropdown open.
+#[golden_test(320, 200, events = [cosmic_golden::left_click(160.0, 20.0)])]
+fn golden_test_with_events() -> cosmic::Element<'_, &'static str> {
+    let state = cosmic::widget::combo_box::State::new(vec!["Alpha", "Beta", "Gamma"]);
+    cosmic::widget::combo_box(&state, "Pick an option", None, |s| s).into()
 }

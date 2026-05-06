@@ -9,14 +9,17 @@ use cosmic::config::FontConfig;
 use cosmic::cosmic_config;
 use cosmic::cosmic_config::CosmicConfigEntry;
 use cosmic::iced::advanced::graphics::text::font_system;
+pub use cosmic::iced::core::Event;
 use cosmic::iced::core::Font;
 use cosmic::iced::core::Pixels;
 use cosmic::iced::core::Size;
+use cosmic::iced::core::clipboard;
 use cosmic::iced::core::font;
 use cosmic::iced::core::mouse;
 use cosmic::iced::core::renderer;
 use cosmic::iced::core::renderer::Headless;
 use cosmic::iced::core::theme;
+use cosmic::iced::core::widget;
 use cosmic::iced::runtime::UserInterface;
 use cosmic::iced::runtime::user_interface;
 
@@ -101,6 +104,21 @@ fn setup_temporary_test_configuration() {
 /// The default font passed to the renderer backend.
 const RENDER_FONT: Font = Font::with_name(BUNDLED_SANS_FAMILY);
 
+/// A no-op widget operation used to trigger overlay layout computation.
+///
+/// `UserInterface::draw` only renders an overlay when its layout has been
+/// pre-computed (stored in the UI's private `overlay` field). That field is
+/// populated by `update` (event processing) or `operate`. Calling
+/// `operate(&mut Noop)` before `draw` ensures any overlay that is currently
+/// visible in the widget tree is actually drawn.
+struct Noop;
+
+impl widget::operation::Operation<()> for Noop {
+    fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn widget::operation::Operation<()>)) {
+        operate(self);
+    }
+}
+
 /// A headless renderer that draws cosmic widgets to an in-memory RGBA buffer.
 pub struct HeadlessRenderer {
     renderer: Renderer,
@@ -133,11 +151,66 @@ impl HeadlessRenderer {
     /// Renders `element` into a pixel buffer of the given size.
     ///
     /// Returns raw RGBA bytes (4 bytes per pixel, row-major).
+    ///
+    /// Overlays that are naturally visible in the element's initial state
+    /// (e.g. a tooltip that is always shown) are included in the output.
+    /// For overlays that require user interaction to open (e.g. a
+    /// `combo_box` dropdown), use [`render_with_events`] instead.
+    ///
+    /// [`render_with_events`]: HeadlessRenderer::render_with_events
     pub fn render<Message>(
         &mut self,
         element: Element<'_, Message>,
         width: u32,
         height: u32,
+    ) -> Vec<u8> {
+        self.render_with_events(element, width, height, &[])
+    }
+
+    /// Renders `element` into a pixel buffer after processing `events`.
+    ///
+    /// Each entry is `(event, cursor)`: the event to deliver and the cursor
+    /// position at the time of delivery. Events are processed one at a time
+    /// in order; the cursor from the last entry is used when drawing.
+    ///
+    /// Use this for widgets whose overlays are triggered by interaction:
+    ///
+    /// - **`combo_box`** — send a `ButtonPressed` at the widget's position
+    ///   to focus the text input and open the dropdown.
+    /// - **`pick_list`** — send a `ButtonPressed` anywhere inside the widget
+    ///   to set `is_open = true` and show the menu.
+    ///
+    /// When `events` is empty this is identical to [`render`].
+    ///
+    /// [`render`]: HeadlessRenderer::render
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use cosmic_golden::{HeadlessRenderer, renderer::Event};
+    /// use cosmic::iced::core::{mouse, Point};
+    ///
+    /// cosmic_golden::init();
+    /// let state = cosmic::widget::combo_box::State::new(
+    ///     vec!["Alpha", "Beta", "Gamma"],
+    /// );
+    /// let element: cosmic::Element<'_, &str> =
+    ///     cosmic::widget::combo_box(&state, "Pick…", None, |s| s).into();
+    ///
+    /// let click = mouse::Cursor::Available(Point::new(100.0, 20.0));
+    /// let mut r = HeadlessRenderer::new();
+    /// let rgba = r.render_with_events(
+    ///     element,
+    ///     300, 200,
+    ///     &[(Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)), click)],
+    /// );
+    /// ```
+    pub fn render_with_events<Message>(
+        &mut self,
+        element: Element<'_, Message>,
+        width: u32,
+        height: u32,
+        events: &[(Event, mouse::Cursor)],
     ) -> Vec<u8> {
         let logical = Size::new(width as f32, height as f32);
 
@@ -147,6 +220,26 @@ impl HeadlessRenderer {
             user_interface::Cache::default(),
             &mut self.renderer,
         );
+
+        let mut null_clipboard = clipboard::Null;
+        let mut messages = Vec::<Message>::new();
+        let mut cursor = mouse::Cursor::Unavailable;
+
+        for (event, event_cursor) in events {
+            cursor = *event_cursor;
+            ui.update(
+                std::slice::from_ref(event),
+                cursor,
+                &mut self.renderer,
+                &mut null_clipboard,
+                &mut messages,
+            );
+        }
+
+        // Populate the overlay layout for any overlay that is currently
+        // visible (either always-present or opened by the events above).
+        // `draw` only renders overlays when this layout has been computed.
+        ui.operate(&self.renderer, &mut Noop);
 
         let base = theme::Base::base(&self.theme);
 
@@ -158,7 +251,7 @@ impl HeadlessRenderer {
                 text_color: base.text_color,
                 scale_factor: 1.0,
             },
-            mouse::Cursor::Unavailable,
+            cursor,
         );
 
         self.renderer

@@ -2,6 +2,7 @@ use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::quote;
 use syn::Error;
+use syn::ExprArray;
 use syn::ItemFn;
 use syn::LitInt;
 use syn::ReturnType;
@@ -12,25 +13,39 @@ use syn::parse::ParseStream;
 /// Turns a function that returns a `cosmic::Element` into a golden image test.
 ///
 /// The snapshot name is derived from the function name. Width and height (in pixels)
-/// are required arguments. An optional third argument selects the theme:
-/// `light` (default) or `dark`.
+/// are required arguments. Two optional named arguments follow:
+///
+/// - A theme keyword — `light` (default) or `dark`.
+/// - `events = [expr, ...]` — a list of `(Event, mouse::Cursor)` pairs passed to
+///   `render_with_events`, used to drive the widget into an interactive state
+///   (e.g. open a `combo_box` dropdown or reveal a `tooltip`) before capturing the
+///   snapshot.
 ///
 /// # Examples
 ///
 /// ```rust,ignore
 /// #[golden_test(320, 60)]
 /// fn my_widget_light() -> cosmic::Element<'_, ()> {
-///     my_widget().into()
+///     cosmic::widget::text("Hello").into()
 /// }
 ///
 /// #[golden_test(320, 60, dark)]
 /// fn my_widget_dark() -> cosmic::Element<'_, ()> {
-///     my_widget().into()
+///     cosmic::widget::text("Hello").into()
+/// }
+///
+/// #[golden_test(320, 200, events = [cosmic_golden::left_click(160.0, 20.0)])]
+/// fn combo_box_open() -> cosmic::Element<'_, &'static str> {
+///     let state = cosmic::widget::combo_box::State::new(vec!["Alpha", "Beta", "Gamma"]);
+///     cosmic::widget::combo_box(&state, "Pick an option", None, |s| s).into()
+/// }
+///
+/// #[golden_test(320, 200, dark, events = [cosmic_golden::left_click(160.0, 20.0)])]
+/// fn combo_box_open_dark() -> cosmic::Element<'_, &'static str> {
+///     let state = cosmic::widget::combo_box::State::new(vec!["Alpha", "Beta", "Gamma"]);
+///     cosmic::widget::combo_box(&state, "Pick an option", None, |s| s).into()
 /// }
 /// ```
-///
-/// Each expands to a `#[test]` that renders the element with the chosen theme and
-/// calls `cosmic_golden::assert_snapshot!`.
 #[proc_macro_attribute]
 pub fn golden_test(attr: TokenStream, item: TokenStream) -> TokenStream {
     match golden_test_impl(attr, item) {
@@ -44,22 +59,37 @@ struct Args {
     height: LitInt,
     /// `None` means default (light).
     theme: Option<Ident>,
+    /// `None` means no events — use `render` instead of `render_with_events`.
+    events: Option<ExprArray>,
 }
 
 fn parse_args(input: ParseStream) -> syn::Result<Args> {
     let width: LitInt = input.parse()?;
     let _: Token![,] = input.parse()?;
     let height: LitInt = input.parse()?;
-    let theme = if input.peek(Token![,]) {
+
+    let mut theme = None;
+    let mut events = None;
+
+    while input.peek(Token![,]) {
         let _: Token![,] = input.parse()?;
-        Some(input.parse::<Ident>()?)
-    } else {
-        None
-    };
+        if input.is_empty() {
+            break;
+        }
+        let key: Ident = input.parse()?;
+        if key == "events" {
+            let _: Token![=] = input.parse()?;
+            events = Some(input.parse::<ExprArray>()?);
+        } else {
+            theme = Some(key);
+        }
+    }
+
     Ok(Args {
         width,
         height,
         theme,
+        events,
     })
 }
 
@@ -68,6 +98,7 @@ fn golden_test_impl(attr: TokenStream, item: TokenStream) -> Result<TokenStream,
         width,
         height,
         theme,
+        events,
     } = syn::parse::Parser::parse(parse_args, attr)?;
 
     let theme_expr = match theme.as_ref().map(|id| id.to_string()).as_deref() {
@@ -119,6 +150,12 @@ fn golden_test_impl(attr: TokenStream, item: TokenStream) -> Result<TokenStream,
         }
     };
 
+    let render_call = if let Some(events) = &events {
+        quote! { renderer.render_with_events(element, #width, #height, &#events) }
+    } else {
+        quote! { renderer.render(element, #width, #height) }
+    };
+
     Ok(quote! {
         #[test]
         fn #func_name() {
@@ -126,7 +163,7 @@ fn golden_test_impl(attr: TokenStream, item: TokenStream) -> Result<TokenStream,
             #(#setup_stmts)*
             let element: #return_type = #element_expr;
             let mut renderer = cosmic_golden::HeadlessRenderer::with_theme(#theme_expr);
-            let rgba = renderer.render(element, #width, #height);
+            let rgba = #render_call;
             cosmic_golden::assert_snapshot_rgba!(#name_str, rgba, #width, #height);
         }
     }

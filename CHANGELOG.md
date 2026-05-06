@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `HeadlessRenderer::render_with_events(element, width, height, events)` renders a
+  widget after processing a sequence of synthetic `(Event, mouse::Cursor)` pairs.
+  Use this to capture widgets whose overlays are triggered by interaction, such as a
+  `combo_box` with its dropdown open or a `tooltip` visible on hover.
+- `render` now draws overlays that are naturally visible in the element's initial
+  state (e.g. always-shown tooltips) by running a no-op widget operation before
+  drawing to ensure the overlay layout is pre-computed.
+- `cosmic_golden::Event` re-export (`cosmic::iced::core::Event`) so callers do not
+  need a direct `iced` dependency when building event sequences.
+- `cosmic_golden::events` module — convenience functions that build
+  `(Event, mouse::Cursor)` pairs ready for use with `render_with_events`:
+  `left_click(x, y)`, `right_click(x, y)`, `left_release(x, y)`,
+  `cursor_move(x, y)`, `scroll(x, y, delta_x, delta_y)`.
+  All five are re-exported at the crate root.
+- `#[golden_test]` now accepts an optional `events = [expr, ...]` argument.
+  When present, the generated test calls `render_with_events` instead of `render`,
+  allowing overlays triggered by interaction to be captured without dropping down
+  to `assert_snapshot_rgba!`.
+- Integration tests covering `render_with_events`: `combo_box` dropdown open/closed
+  and `tooltip` visible/hidden, each with a committed PNG baseline.
+
 ## [0.3.0] - 2026-04-15
 
 ### Changed

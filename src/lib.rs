@@ -75,11 +75,18 @@
 //! UPDATE_SNAPSHOTS=1 cargo nextest run -p my-crate
 //! ```
 
+pub mod events;
 pub mod renderer;
 pub mod snapshot;
 
 pub use cosmic::Theme;
 pub use cosmic_golden_macros::golden_test;
+pub use events::cursor_move;
+pub use events::left_click;
+pub use events::left_release;
+pub use events::right_click;
+pub use events::scroll;
+pub use renderer::Event;
 pub use renderer::HeadlessRenderer;
 pub use renderer::init;
 
