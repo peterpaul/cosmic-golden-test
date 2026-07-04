@@ -218,14 +218,15 @@ fn combo_box_open_and_closed() {
 
 `cosmic_golden::init()` makes font rendering environment-independent. It must be called
 **before any widget is constructed**, because libcosmic widget constructors call
-`cosmic::font::default()`, which triggers the `COSMIC_TK` global to initialize from the
-user's real Cosmic Desktop config if it has not done so yet.
+`cosmic::font::default()`, which reads the `COSMIC_TK` global.
 
 `init()` does two things:
 
-1. **Config isolation** — redirects `$XDG_CONFIG_HOME` to a temporary directory and writes a
-   `CosmicTk` config there naming the bundled fonts. When `COSMIC_TK` later initializes it
-   reads from this directory instead of the user's real desktop settings.
+1. **Config isolation** — overwrites the `COSMIC_TK` global with a default configuration
+   naming the bundled fonts, replacing whatever the user's real desktop settings say.
+   It also redirects `$XDG_CONFIG_HOME` to a temporary directory so that other cosmic
+   configs are isolated on Linux (macOS ignores this variable, which is why the font
+   configuration is applied directly rather than through a config file).
 
 2. **Font registration** — loads Noto Sans Regular and Noto Sans Mono Regular (embedded in
    the library binary) into the global `FontSystem`, so the family names always resolve to

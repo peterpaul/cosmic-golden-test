@@ -4,10 +4,9 @@ use std::sync::OnceLock;
 use cosmic::Element;
 use cosmic::Renderer;
 use cosmic::Theme;
+use cosmic::config::COSMIC_TK;
 use cosmic::config::CosmicTk;
 use cosmic::config::FontConfig;
-use cosmic::cosmic_config;
-use cosmic::cosmic_config::CosmicConfigEntry;
 use cosmic::iced::advanced::graphics::text::font_system;
 pub use cosmic::iced::core::Event;
 use cosmic::iced::core::Font;
@@ -40,9 +39,9 @@ const BUNDLED_MONO_FAMILY: &str = "Noto Sans Mono";
 /// This function does two things to make rendering environment-independent:
 ///
 /// 1. **Config isolation** — redirects `XDG_CONFIG_HOME` to a temporary
-///    directory and writes a `CosmicTk` config there that names the bundled
-///    fonts. When `COSMIC_TK` later initializes it reads from this directory
-///    instead of the user's real Cosmic Desktop settings.
+///    directory (Linux-only; macOS ignores it) and overwrites the `COSMIC_TK`
+///    global directly with a default configuration that names the bundled
+///    fonts, replacing whatever the user's real Cosmic Desktop settings say.
 ///
 /// 2. **Font registration** — loads the bundled Noto Sans and Noto Sans Mono
 ///    bytes into the global `FontSystem` so the family names always resolve to
@@ -58,39 +57,35 @@ pub fn init() {
 fn setup_temporary_test_configuration() {
     static LOADED: OnceLock<()> = OnceLock::new();
     LOADED.get_or_init(|| {
-        // Point XDG_CONFIG_HOME at an isolated directory so that COSMIC_TK's
-        // LazyLock (which calls Config::new → dirs::config_dir() → $XDG_CONFIG_HOME)
-        // reads from here rather than the real user config.
+        // Point XDG_CONFIG_HOME at an isolated directory so that cosmic
+        // configs read via dirs::config_dir() come from here rather than the
+        // real user config. dirs only honors XDG_CONFIG_HOME on Linux, so
+        // this isolation is a no-op on macOS — the font configuration below
+        // therefore bypasses config files entirely.
         let config_dir = std::env::temp_dir().join("cosmic-golden-isolated-config");
         // SAFETY: single-threaded at this point (OnceLock guarantees one caller).
         unsafe { std::env::set_var("XDG_CONFIG_HOME", &config_dir) };
 
-        // Write a CosmicTk that names the bundled fonts to the isolated
-        // directory. with_custom_path creates:
-        //   <config_dir>/cosmic/com.system76.CosmicTk/v1/
-        let config = cosmic_config::Config::with_custom_path(
-            "com.system76.CosmicTk",
-            CosmicTk::VERSION,
-            config_dir,
-        )
-        .expect("create isolated CosmicTk config");
-
-        let mut cosmic_tk = CosmicTk::get_entry(&config).unwrap_or_default();
-        cosmic_tk.interface_font = FontConfig {
-            family: BUNDLED_SANS_FAMILY.to_owned(),
-            weight: font::Weight::Normal,
-            stretch: font::Stretch::Normal,
-            style: font::Style::Normal,
+        // Overwrite COSMIC_TK in place instead of writing a config file for
+        // its LazyLock to pick up: file-based overrides are not portable
+        // (see above), and a direct write also discards whatever desktop
+        // settings the LazyLock may have read. Accessing the static here
+        // triggers its initialization, before any widget queries it.
+        *COSMIC_TK.write().unwrap() = CosmicTk {
+            interface_font: FontConfig {
+                family: BUNDLED_SANS_FAMILY.to_owned(),
+                weight: font::Weight::Normal,
+                stretch: font::Stretch::Normal,
+                style: font::Style::Normal,
+            },
+            monospace_font: FontConfig {
+                family: BUNDLED_MONO_FAMILY.to_owned(),
+                weight: font::Weight::Normal,
+                stretch: font::Stretch::Normal,
+                style: font::Style::Normal,
+            },
+            ..CosmicTk::default()
         };
-        cosmic_tk.monospace_font = FontConfig {
-            family: BUNDLED_MONO_FAMILY.to_owned(),
-            weight: font::Weight::Normal,
-            stretch: font::Stretch::Normal,
-            style: font::Style::Normal,
-        };
-        cosmic_tk
-            .write_entry(&config)
-            .expect("write isolated CosmicTk config");
 
         // Register the bundled font bytes in the global FontSystem so that
         // the family names above resolve to known bytes on every machine,

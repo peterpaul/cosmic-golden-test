@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Font configuration now works on macOS. `init()` previously wrote the `CosmicTk`
+  font override to a config file under `$XDG_CONFIG_HOME`, which cosmic-config
+  (via `dirs::config_dir()`) only honors on Linux; on macOS the override was
+  silently ignored, widgets fell back to the default "Open Sans" family — which
+  is not bundled — and every snapshot differed from its baseline. The bundled
+  font families are now written directly to the `COSMIC_TK` global, which works
+  on every platform and also takes effect when a real desktop config was
+  already loaded.
+
 ## [0.4.0] - 2026-05-06
 
 ### Added
