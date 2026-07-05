@@ -106,3 +106,40 @@ fn monotext_bold() -> cosmic::Element<'static, ()> {
         })
         .into()
 }
+
+fn generic_family_text(family: font::Family) -> cosmic::Element<'static, ()> {
+    let font = cosmic::iced::core::Font {
+        family,
+        ..cosmic::font::default()
+    };
+    cosmic::widget::text("Grumpy wizards 123").font(font).into()
+}
+
+/// The three pinned generic families must resolve to three distinct faces.
+#[test]
+fn generic_families_render_distinctly() {
+    cosmic_golden::init();
+    let mut renderer = HeadlessRenderer::new();
+    let serif = renderer.render(generic_family_text(font::Family::Serif), 220, 40);
+    let sans = renderer.render(generic_family_text(font::Family::SansSerif), 220, 40);
+    let mono = renderer.render(generic_family_text(font::Family::Monospace), 220, 40);
+    assert_ne!(serif, sans, "serif rendered identically to sans-serif");
+    assert_ne!(serif, mono, "serif rendered identically to monospace");
+    assert_ne!(sans, mono, "sans-serif rendered identically to monospace");
+}
+
+#[golden_test(220, 40)]
+fn text_serif() -> cosmic::Element<'static, ()> {
+    generic_family_text(font::Family::Serif)
+}
+
+#[golden_test(220, 40)]
+fn text_serif_bold_italic() -> cosmic::Element<'static, ()> {
+    let font = cosmic::iced::core::Font {
+        family: font::Family::Serif,
+        weight: font::Weight::Bold,
+        style: font::Style::Italic,
+        ..cosmic::font::default()
+    };
+    cosmic::widget::text("Grumpy wizards 123").font(font).into()
+}

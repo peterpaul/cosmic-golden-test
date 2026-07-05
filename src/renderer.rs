@@ -38,10 +38,15 @@ static BUNDLED_FONTS: &[&[u8]] = &[
     include_bytes!("../fonts/NotoSans-BoldItalic.ttf"),
     include_bytes!("../fonts/NotoSansMono-Regular.ttf"),
     include_bytes!("../fonts/NotoSansMono-Bold.ttf"),
+    include_bytes!("../fonts/NotoSerif-Regular.ttf"),
+    include_bytes!("../fonts/NotoSerif-Bold.ttf"),
+    include_bytes!("../fonts/NotoSerif-Italic.ttf"),
+    include_bytes!("../fonts/NotoSerif-BoldItalic.ttf"),
 ];
 
 const BUNDLED_SANS_FAMILY: &str = "Noto Sans";
 const BUNDLED_MONO_FAMILY: &str = "Noto Sans Mono";
+const BUNDLED_SERIF_FAMILY: &str = "Noto Serif";
 
 /// Isolates the Cosmic Desktop configuration for golden tests.
 ///
@@ -144,6 +149,18 @@ fn setup_temporary_test_configuration() {
         for font in BUNDLED_FONTS {
             fs.load_font(Cow::Borrowed(*font));
         }
+
+        // Pin the generic font families to bundled ones, so text using
+        // Family::Serif / SansSerif / Monospace (e.g. document viewers with a
+        // serif default) renders from bundled bytes rather than whatever the
+        // host maps those generics to. Cursive and fantasy have no bundled
+        // equivalent; mapping them to the sans face keeps them deterministic.
+        let db = fs.raw().db_mut();
+        db.set_sans_serif_family(BUNDLED_SANS_FAMILY);
+        db.set_serif_family(BUNDLED_SERIF_FAMILY);
+        db.set_monospace_family(BUNDLED_MONO_FAMILY);
+        db.set_cursive_family(BUNDLED_SANS_FAMILY);
+        db.set_fantasy_family(BUNDLED_SANS_FAMILY);
     });
 }
 

@@ -231,10 +231,12 @@ fn combo_box_open_and_closed() {
 2. **Font registration** — loads the bundled Noto Sans and Noto Sans Mono faces (embedded in
    the library binary) into the global `FontSystem`, so the family names always resolve to
    the same bytes regardless of what fonts are installed on the machine. Bundled variants:
-   Noto Sans Light, Regular, SemiBold, Bold, Italic and Bold Italic, plus Noto Sans Mono
-   Regular and Bold — covering every weight and style that libcosmic widgets request
-   (`font::light()`, `font::semibold()` for headings and menus, `font::bold()` for titles,
-   and italic spans).
+   Noto Sans Light, Regular, SemiBold, Bold, Italic and Bold Italic, Noto Sans Mono
+   Regular and Bold, and Noto Serif Regular, Bold, Italic and Bold Italic — covering every
+   weight and style that libcosmic widgets request (`font::light()`, `font::semibold()` for
+   headings and menus, `font::bold()` for titles, and italic spans). The generic families
+   are pinned too: `Family::Serif` → Noto Serif, `Family::SansSerif` → Noto Sans,
+   `Family::Monospace` → Noto Sans Mono, and cursive/fantasy → Noto Sans.
 
 3. **Icon isolation** — points the freedesktop icon lookup at the Cosmic icon theme vendored
    in this crate and hides system and user icon themes (see [Icon handling](#icon-handling)).
@@ -258,7 +260,9 @@ fn my_test() {
   variants.
 - The **monospace font** (`cosmic_tk.monospace_font`) resolves to Noto Sans Mono (regular
   and bold) on every machine.
-- Rendering of widgets that use only these two families — at any weight or style libcosmic
+- The **generic families** (`Family::Serif`, `Family::SansSerif`, `Family::Monospace`,
+  cursive, fantasy) resolve to bundled Noto faces on every machine.
+- Rendering of widgets that use only the bundled families — at any weight or style libcosmic
   requests — is byte-for-byte identical across environments.
 
 ### What is not guaranteed

@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `font::semibold()` (headings, menus), `font::bold()` (titles) or italic
   spans now render identically on every machine instead of falling back to
   host-installed fonts.
+- Generic font families: Noto Serif Regular/Bold/Italic/Bold Italic are
+  bundled (same source) and the fontdb generic families are pinned —
+  `Family::Serif` → Noto Serif, `Family::SansSerif` → Noto Sans,
+  `Family::Monospace` → Noto Sans Mono, cursive/fantasy → Noto Sans. Text
+  using generic families (e.g. serif-default document viewers) is now
+  deterministic. **Baselines rendered with previously host-resolved generic
+  families must be regenerated.**
 - Icon isolation: `init()` now points the freedesktop icon lookup at a vendored
   copy of the Cosmic icon theme (`icons/Cosmic`, from cosmic-icons commit
   `5252095`) and hides system and user icon themes. Named symbolic icons render
