@@ -36,7 +36,7 @@ const BUNDLED_MONO_FAMILY: &str = "Noto Sans Mono";
 /// call `cosmic::font::default()`, which triggers `COSMIC_TK`'s `LazyLock`
 /// to initialize from the real Cosmic Desktop config if it hasn't run yet.
 ///
-/// This function does two things to make rendering environment-independent:
+/// This function does three things to make rendering environment-independent:
 ///
 /// 1. **Config isolation** — redirects `XDG_CONFIG_HOME` to a temporary
 ///    directory (Linux-only; macOS ignores it) and overwrites the `COSMIC_TK`
@@ -46,6 +46,14 @@ const BUNDLED_MONO_FAMILY: &str = "Noto Sans Mono";
 /// 2. **Font registration** — loads the bundled Noto Sans and Noto Sans Mono
 ///    bytes into the global `FontSystem` so the family names always resolve to
 ///    the same bytes regardless of what system fonts are installed.
+///
+/// 3. **Icon isolation** — points the freedesktop icon lookup at the Cosmic
+///    icon theme vendored in this crate (`icons/Cosmic`) and hides any system
+///    or user icon themes, so named icons resolve to the same SVGs on every
+///    machine — including bare CI runners with no icon theme installed. On
+///    macOS and Windows libcosmic never performs theme lookups; it falls back
+///    to icons embedded at build time from the same `cosmic-icons` source, so
+///    rendering matches across platforms.
 ///
 /// The `#[golden_test]` macro inserts this call automatically. When using
 /// `assert_snapshot!` or `assert_snapshot_rgba!` directly, call this at the
@@ -65,6 +73,33 @@ fn setup_temporary_test_configuration() {
         let config_dir = std::env::temp_dir().join("cosmic-golden-isolated-config");
         // SAFETY: single-threaded at this point (OnceLock guarantees one caller).
         unsafe { std::env::set_var("XDG_CONFIG_HOME", &config_dir) };
+
+        // Resolve named icons from the Cosmic icon theme vendored in this
+        // crate instead of whatever themes the machine has installed.
+        // freedesktop-icons computes its base paths once (LazyLock), so both
+        // variables must be set before the first icon lookup:
+        //
+        // - XDG_DATA_DIRS → this crate's root, which contains `icons/Cosmic`.
+        //   Replacing (not extending) the variable hides /usr/share/icons.
+        // - XDG_DATA_HOME → a non-existent directory, hiding
+        //   ~/.local/share/icons.
+        //
+        // ~/.icons cannot be hidden this way, but XDG_DATA_DIRS is searched
+        // first, so the vendored theme always shadows a user-installed one.
+        //
+        // SAFETY: as above.
+        unsafe {
+            std::env::set_var("XDG_DATA_DIRS", env!("CARGO_MANIFEST_DIR"));
+            std::env::set_var(
+                "XDG_DATA_HOME",
+                std::env::temp_dir().join("cosmic-golden-isolated-data"),
+            );
+        }
+
+        // Pin the theme name in case the test binary changed it; libcosmic
+        // resolves named icons against this theme (falling back to it when a
+        // different default is set).
+        cosmic::icon_theme::set_default(cosmic::icon_theme::COSMIC);
 
         // Overwrite COSMIC_TK in place instead of writing a config file for
         // its LazyLock to pick up: file-based overrides are not portable

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Icon isolation: `init()` now points the freedesktop icon lookup at a vendored
+  copy of the Cosmic icon theme (`icons/Cosmic`, from cosmic-icons commit
+  `5252095`) and hides system and user icon themes. Named symbolic icons render
+  identically on every machine, including CI runners with no icon theme
+  installed. On macOS/Windows libcosmic already uses embedded icons from the
+  same source, so rendering matches across platforms.
+
 ## [0.5.0] - 2026-07-04
 
 ### Fixed

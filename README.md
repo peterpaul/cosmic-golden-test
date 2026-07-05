@@ -220,7 +220,7 @@ fn combo_box_open_and_closed() {
 **before any widget is constructed**, because libcosmic widget constructors call
 `cosmic::font::default()`, which reads the `COSMIC_TK` global.
 
-`init()` does two things:
+`init()` does three things:
 
 1. **Config isolation** — overwrites the `COSMIC_TK` global with a default configuration
    naming the bundled fonts, replacing whatever the user's real desktop settings say.
@@ -231,6 +231,9 @@ fn combo_box_open_and_closed() {
 2. **Font registration** — loads Noto Sans Regular and Noto Sans Mono Regular (embedded in
    the library binary) into the global `FontSystem`, so the family names always resolve to
    the same bytes regardless of what fonts are installed on the machine.
+
+3. **Icon isolation** — points the freedesktop icon lookup at the Cosmic icon theme vendored
+   in this crate and hides system and user icon themes (see [Icon handling](#icon-handling)).
 
 The `#[golden_test]` macro inserts this call automatically as the very first statement of the
 generated test. When using `assert_snapshot!` or `assert_snapshot_rgba!` directly, call it
@@ -338,6 +341,49 @@ fn my_icon_widget() {
     cosmic_golden::assert_snapshot!("my_icon_widget", element, 320, 60);
 }
 ```
+
+## Icon handling
+
+Widgets that use `cosmic::widget::icon::from_name(...)` resolve icon names through the
+freedesktop icon theme lookup on Linux. Without isolation the result depends on which icon
+themes the machine has installed — a bare CI runner has none, so icons silently render blank
+and golden tests fail with baselines generated on a desktop.
+
+`init()` therefore points the lookup at a copy of the
+[Cosmic icon theme](https://github.com/pop-os/cosmic-icons) vendored in this crate under
+`icons/Cosmic`, and hides system (`$XDG_DATA_DIRS`) and user (`$XDG_DATA_HOME`) icon themes.
+Because [freedesktop-icons](https://crates.io/crates/freedesktop-icons) computes its search
+paths once per process, this — like the font setup — only works when `init()` runs before the
+first icon lookup.
+
+On macOS and Windows libcosmic performs no theme lookup at all; it falls back to icons
+embedded in the binary at build time from the same `cosmic-icons` source. Rendering is
+therefore identical across platforms as long as the vendored theme matches the `cosmic-icons`
+submodule of the libcosmic revision in use.
+
+### What is guaranteed
+
+- Named symbolic icons present in the Cosmic theme (e.g. `go-next-symbolic`,
+  `edit-delete-symbolic`) resolve to the vendored SVGs on every Linux machine, including CI
+  runners with no icon theme installed.
+- The theme's `Inherits=Pop,hicolor` chain is inert: those themes are hidden, so a name
+  either resolves from the vendored theme or renders blank — consistently everywhere.
+
+### What is not guaranteed
+
+- Icon names **absent from the Cosmic theme** render blank. This matches macOS behaviour
+  (the embedded bundle contains the same set), so baselines stay consistent — but if you
+  need such an icon to appear, load it from bytes with `icon::from_svg_bytes` instead of
+  `from_name`.
+
+### Updating the vendored theme
+
+The theme is copied from the `cosmic-icons` submodule of libcosmic
+(currently commit `5252095`, 2026-03-03), merging `freedesktop/scalable` and
+`extra/scalable` into `icons/Cosmic/scalable` alongside the root `index.theme` — the same
+layout the theme's `justfile` installs to `/usr/share/icons/Cosmic`. When bumping the
+libcosmic dependency, re-vendor if the submodule content changed, and regenerate icon
+baselines.
 
 ## Generated files
 
