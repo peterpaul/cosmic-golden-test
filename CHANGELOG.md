@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Font weights and styles: besides Noto Sans Regular and Noto Sans Mono
+  Regular, `init()` now registers Noto Sans Light, SemiBold, Bold, Italic and
+  Bold Italic, and Noto Sans Mono Bold (all v2.008/v2.007 hinted, from
+  googlefonts/noto-fonts commit `ffebf8c`). Widgets using `font::light()`,
+  `font::semibold()` (headings, menus), `font::bold()` (titles) or italic
+  spans now render identically on every machine instead of falling back to
+  host-installed fonts.
 - Icon isolation: `init()` now points the freedesktop icon lookup at a vendored
   copy of the Cosmic icon theme (`icons/Cosmic`, from cosmic-icons commit
   `5252095`) and hides system and user icon themes. Named symbolic icons render

@@ -22,10 +22,23 @@ use cosmic::iced::core::widget;
 use cosmic::iced::runtime::UserInterface;
 use cosmic::iced::runtime::user_interface;
 
-/// Noto Sans Regular (SIL OFL 1.1), used as the interface font in tests.
-static BUNDLED_SANS: &[u8] = include_bytes!("../fonts/NotoSans-Regular.ttf");
-/// Noto Sans Mono Regular (SIL OFL 1.1), used as the monospace font in tests.
-static BUNDLED_MONO: &[u8] = include_bytes!("../fonts/NotoSansMono-Regular.ttf");
+/// Bundled font faces (SIL OFL 1.1) registered by [`init`].
+///
+/// Noto Sans serves as the interface font and Noto Sans Mono as the monospace
+/// font. Besides the regular faces, the weights and styles that libcosmic
+/// widgets request are bundled so that e.g. `font::semibold()` (section
+/// headers, menus), `font::bold()` (titles) and `font::light()` resolve to
+/// known bytes instead of falling back to whatever the host has installed.
+static BUNDLED_FONTS: &[&[u8]] = &[
+    include_bytes!("../fonts/NotoSans-Light.ttf"),
+    include_bytes!("../fonts/NotoSans-Regular.ttf"),
+    include_bytes!("../fonts/NotoSans-SemiBold.ttf"),
+    include_bytes!("../fonts/NotoSans-Bold.ttf"),
+    include_bytes!("../fonts/NotoSans-Italic.ttf"),
+    include_bytes!("../fonts/NotoSans-BoldItalic.ttf"),
+    include_bytes!("../fonts/NotoSansMono-Regular.ttf"),
+    include_bytes!("../fonts/NotoSansMono-Bold.ttf"),
+];
 
 const BUNDLED_SANS_FAMILY: &str = "Noto Sans";
 const BUNDLED_MONO_FAMILY: &str = "Noto Sans Mono";
@@ -44,8 +57,10 @@ const BUNDLED_MONO_FAMILY: &str = "Noto Sans Mono";
 ///    fonts, replacing whatever the user's real Cosmic Desktop settings say.
 ///
 /// 2. **Font registration** — loads the bundled Noto Sans and Noto Sans Mono
-///    bytes into the global `FontSystem` so the family names always resolve to
-///    the same bytes regardless of what system fonts are installed.
+///    faces (light, regular, semibold, bold and italic variants) into the
+///    global `FontSystem` so the family names
+///    always resolve to the same bytes regardless of what system fonts are
+///    installed — for every weight and style libcosmic widgets request.
 ///
 /// 3. **Icon isolation** — points the freedesktop icon lookup at the Cosmic
 ///    icon theme vendored in this crate (`icons/Cosmic`) and hides any system
@@ -126,8 +141,9 @@ fn setup_temporary_test_configuration() {
         // the family names above resolve to known bytes on every machine,
         // not to whatever version of those fonts happens to be installed.
         let mut fs = font_system().write().unwrap();
-        fs.load_font(Cow::Borrowed(BUNDLED_SANS));
-        fs.load_font(Cow::Borrowed(BUNDLED_MONO));
+        for font in BUNDLED_FONTS {
+            fs.load_font(Cow::Borrowed(*font));
+        }
     });
 }
 

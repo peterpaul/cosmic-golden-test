@@ -228,9 +228,13 @@ fn combo_box_open_and_closed() {
    configs are isolated on Linux (macOS ignores this variable, which is why the font
    configuration is applied directly rather than through a config file).
 
-2. **Font registration** — loads Noto Sans Regular and Noto Sans Mono Regular (embedded in
+2. **Font registration** — loads the bundled Noto Sans and Noto Sans Mono faces (embedded in
    the library binary) into the global `FontSystem`, so the family names always resolve to
-   the same bytes regardless of what fonts are installed on the machine.
+   the same bytes regardless of what fonts are installed on the machine. Bundled variants:
+   Noto Sans Light, Regular, SemiBold, Bold, Italic and Bold Italic, plus Noto Sans Mono
+   Regular and Bold — covering every weight and style that libcosmic widgets request
+   (`font::light()`, `font::semibold()` for headings and menus, `font::bold()` for titles,
+   and italic spans).
 
 3. **Icon isolation** — points the freedesktop icon lookup at the Cosmic icon theme vendored
    in this crate and hides system and user icon themes (see [Icon handling](#icon-handling)).
@@ -249,12 +253,13 @@ fn my_test() {
 
 ### What is guaranteed
 
-- The **interface font** (`cosmic_tk.interface_font`) resolves to Noto Sans Regular on every
-  machine, including CI runners.
-- The **monospace font** (`cosmic_tk.monospace_font`) resolves to Noto Sans Mono Regular on
-  every machine.
-- Rendering of widgets that use only these two families is byte-for-byte identical across
-  environments.
+- The **interface font** (`cosmic_tk.interface_font`) resolves to Noto Sans on every
+  machine, including CI runners — in light, regular, semibold, bold, italic and bold-italic
+  variants.
+- The **monospace font** (`cosmic_tk.monospace_font`) resolves to Noto Sans Mono (regular
+  and bold) on every machine.
+- Rendering of widgets that use only these two families — at any weight or style libcosmic
+  requests — is byte-for-byte identical across environments.
 
 ### What is not guaranteed
 
@@ -262,6 +267,9 @@ fn my_test() {
   If a widget requests a family that is not registered, the font system falls back to whatever
   the host has installed. This can differ between a developer machine and a CI runner, causing
   spurious failures.
+- **Weights and styles outside the bundled set** (e.g. thin, extra-bold, semibold-italic) are
+  matched to the nearest bundled face by the font system. The result is deterministic, but not
+  the face you asked for.
 - **Font metrics** for families outside the bundled set are not pinned. Even if the same font
   file is installed in two places, different versions may produce different glyph outlines or
   advance widths.
