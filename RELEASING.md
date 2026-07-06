@@ -24,7 +24,7 @@ Always preview the release first. `cargo-release` will show every file it
 intends to modify without touching anything:
 
 ```bash
-cargo release minor --workspace
+cargo release minor --workspace --no-publish
 ```
 
 Replace `minor` with `patch` or `major` as appropriate, or pass an explicit
@@ -40,7 +40,7 @@ version (`0.2.0`). Check that:
 When the dry run looks good, add `--execute` to apply the changes:
 
 ```bash
-cargo release minor --workspace --execute
+cargo release minor --workspace --no-publish --execute
 ```
 
 `cargo-release` will:
