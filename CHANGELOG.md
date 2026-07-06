@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-06
+
 ### Added
 
 - Font weights and styles: besides Noto Sans Regular and Noto Sans Mono
@@ -112,7 +114,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   comparing.
 - GitHub Actions CI: build, test, and upload diff artifacts on failure.
 
-[Unreleased]: https://github.com/peterpaul/cosmic-golden-test/compare/0.5.0...HEAD
+[Unreleased]: https://github.com/peterpaul/cosmic-golden-test/compare/0.6.0...HEAD
+[0.6.0]: https://github.com/peterpaul/cosmic-golden-test/compare/0.5.0...0.6.0
 [0.5.0]: https://github.com/peterpaul/cosmic-golden-test/compare/0.4.0...0.5.0
 [0.4.0]: https://github.com/peterpaul/cosmic-golden-test/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/peterpaul/cosmic-golden-test/compare/0.2.0...0.3.0
