@@ -217,16 +217,18 @@ fn combo_box_open_and_closed() {
 ### What `init()` does
 
 `cosmic_golden::init()` makes font rendering environment-independent. It must be called
-**before any widget is constructed**, because libcosmic widget constructors call
-`cosmic::font::default()`, which reads the `COSMIC_TK` global.
+**before any widget is rendered**, because the global `FontSystem` caches font matches on
+first use.
+
+libcosmic widgets take their fonts from the active theme (`cosmic::font::default()` and
+`cosmic::font::mono()` read `cosmic::theme::active()`). Outside a running application that is
+libcosmic's built-in dark theme, which never reads the desktop config and names the fixed
+families "Open Sans" (interface) and "Noto Sans Mono" (monospace).
 
 `init()` does three things:
 
-1. **Config isolation** — overwrites the `COSMIC_TK` global with a default configuration
-   naming the bundled fonts, replacing whatever the user's real desktop settings say.
-   It also redirects `$XDG_CONFIG_HOME` to a temporary directory so that other cosmic
-   configs are isolated on Linux (macOS ignores this variable, which is why the font
-   configuration is applied directly rather than through a config file).
+1. **Config isolation** — redirects `$XDG_CONFIG_HOME` to a temporary directory so that
+   cosmic configs are isolated on Linux (macOS ignores this variable).
 
 2. **Font registration** — loads the bundled Noto Sans and Noto Sans Mono faces (embedded in
    the library binary) into the global `FontSystem`, so the family names always resolve to
@@ -237,6 +239,10 @@ fn combo_box_open_and_closed() {
    headings and menus, `font::bold()` for titles, and italic spans). The generic families
    are pinned too: `Family::Serif` → Noto Serif, `Family::SansSerif` → Noto Sans,
    `Family::Monospace` → Noto Sans Mono, and cursive/fantasy → Noto Sans.
+   The theme's interface family "Open Sans" is not bundled: the bundled Noto Sans faces are
+   registered a second time under that name, and host faces named "Open Sans" or
+   "Noto Sans Mono" are dropped. All of this happens in the test process's in-memory font
+   database; nothing on the machine is changed.
 
 3. **Icon isolation** — points the freedesktop icon lookup at the Cosmic icon theme vendored
    in this crate and hides system and user icon themes (see [Icon handling](#icon-handling)).
@@ -255,10 +261,10 @@ fn my_test() {
 
 ### What is guaranteed
 
-- The **interface font** (`cosmic_tk.interface_font`) resolves to Noto Sans on every
+- The **interface font** (the theme's `font`, "Open Sans") resolves to Noto Sans on every
   machine, including CI runners — in light, regular, semibold, bold, italic and bold-italic
   variants.
-- The **monospace font** (`cosmic_tk.monospace_font`) resolves to Noto Sans Mono (regular
+- The **monospace font** (the theme's `mono_font`) resolves to Noto Sans Mono (regular
   and bold) on every machine.
 - The **generic families** (`Family::Serif`, `Family::SansSerif`, `Family::Monospace`,
   cursive, fantasy) resolve to bundled Noto faces on every machine.

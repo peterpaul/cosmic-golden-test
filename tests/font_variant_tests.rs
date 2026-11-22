@@ -143,3 +143,30 @@ fn text_serif_bold_italic() -> cosmic::Element<'static, ()> {
     };
     cosmic::widget::text("Grumpy wizards 123").font(font).into()
 }
+
+/// The built-in theme names "Open Sans" and "Noto Sans Mono"; after `init()`
+/// both families must resolve only to bundled bytes, never to a host copy.
+#[test]
+fn theme_font_families_resolve_to_bundled_faces() {
+    use cosmic::cosmic_theme::DEFAULT_FONT_FAMILY;
+    use cosmic::cosmic_theme::DEFAULT_MONOSPACE_FONT_FAMILY;
+    use cosmic::iced::advanced::graphics::text::cosmic_text::fontdb;
+    use cosmic::iced::advanced::graphics::text::font_system;
+
+    cosmic_golden::init();
+    let mut fs = font_system().write().unwrap();
+    let db = fs.raw().db_mut();
+    for family in [DEFAULT_FONT_FAMILY, DEFAULT_MONOSPACE_FONT_FAMILY] {
+        let faces: Vec<_> = db
+            .faces()
+            .filter(|face| face.families.iter().any(|(name, _)| name == family))
+            .collect();
+        assert!(!faces.is_empty(), "no faces registered for {family}");
+        assert!(
+            faces
+                .iter()
+                .all(|face| matches!(face.source, fontdb::Source::Binary(_))),
+            "{family} resolves to a host font"
+        );
+    }
+}

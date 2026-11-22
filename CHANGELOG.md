@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Support libcosmic's move of fonts from `CosmicTk` into the theme. `init()` no
+  longer writes `COSMIC_TK`; instead it makes the built-in theme's font families
+  resolve to bundled bytes: the bundled Noto Sans faces are also registered as
+  "Open Sans" (the theme's interface family), and host faces named "Open Sans"
+  or "Noto Sans Mono" are dropped from the in-process font database. Existing
+  baselines stay valid.
+
 ## [0.6.0] - 2026-07-06
 
 ### Added

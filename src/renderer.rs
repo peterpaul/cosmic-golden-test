@@ -4,16 +4,15 @@ use std::sync::OnceLock;
 use cosmic::Element;
 use cosmic::Renderer;
 use cosmic::Theme;
-use cosmic::config::COSMIC_TK;
-use cosmic::config::CosmicTk;
-use cosmic::config::FontConfig;
+use cosmic::cosmic_theme::DEFAULT_FONT_FAMILY;
+use cosmic::cosmic_theme::DEFAULT_MONOSPACE_FONT_FAMILY;
+use cosmic::iced::advanced::graphics::text::cosmic_text::fontdb;
 use cosmic::iced::advanced::graphics::text::font_system;
 pub use cosmic::iced::core::Event;
 use cosmic::iced::core::Font;
 use cosmic::iced::core::Pixels;
 use cosmic::iced::core::Size;
 use cosmic::iced::core::clipboard;
-use cosmic::iced::core::font;
 use cosmic::iced::core::mouse;
 use cosmic::iced::core::renderer;
 use cosmic::iced::core::renderer::Headless;
@@ -50,22 +49,30 @@ const BUNDLED_SERIF_FAMILY: &str = "Noto Serif";
 
 /// Isolates the Cosmic Desktop configuration for golden tests.
 ///
-/// Must be called **before any widget is constructed** — widget constructors
-/// call `cosmic::font::default()`, which triggers `COSMIC_TK`'s `LazyLock`
-/// to initialize from the real Cosmic Desktop config if it hasn't run yet.
+/// Must be called **before any widget is rendered** — text is shaped through
+/// the global `FontSystem`, which caches font matches on first use.
+///
+/// Widget constructors take their fonts from `cosmic::theme::active()`.
+/// Outside a running application that is libcosmic's built-in dark theme,
+/// which never reads the Cosmic Desktop config and names the fixed families
+/// `DEFAULT_FONT_FAMILY` ("Open Sans") and `DEFAULT_MONOSPACE_FONT_FAMILY`
+/// ("Noto Sans Mono").
 ///
 /// This function does three things to make rendering environment-independent:
 ///
 /// 1. **Config isolation** — redirects `XDG_CONFIG_HOME` to a temporary
-///    directory (Linux-only; macOS ignores it) and overwrites the `COSMIC_TK`
-///    global directly with a default configuration that names the bundled
-///    fonts, replacing whatever the user's real Cosmic Desktop settings say.
+///    directory (Linux-only; macOS ignores it) so cosmic configs read during
+///    the test do not come from the user's real settings.
 ///
 /// 2. **Font registration** — loads the bundled Noto Sans and Noto Sans Mono
 ///    faces (light, regular, semibold, bold and italic variants) into the
-///    global `FontSystem` so the family names
-///    always resolve to the same bytes regardless of what system fonts are
-///    installed — for every weight and style libcosmic widgets request.
+///    global `FontSystem` and makes the theme's font families resolve to
+///    them: the bundled Noto Sans faces are registered a second time under
+///    the theme's interface family name, and host faces carrying either
+///    theme family name are dropped from the in-memory font database. The
+///    family names therefore always resolve to the same bytes regardless of
+///    what system fonts are installed — for every weight and style libcosmic
+///    widgets request. Nothing is changed outside the test process.
 ///
 /// 3. **Icon isolation** — points the freedesktop icon lookup at the Cosmic
 ///    icon theme vendored in this crate (`icons/Cosmic`) and hides any system
@@ -121,34 +128,14 @@ fn setup_temporary_test_configuration() {
         // different default is set).
         cosmic::icon_theme::set_default(cosmic::icon_theme::COSMIC);
 
-        // Overwrite COSMIC_TK in place instead of writing a config file for
-        // its LazyLock to pick up: file-based overrides are not portable
-        // (see above), and a direct write also discards whatever desktop
-        // settings the LazyLock may have read. Accessing the static here
-        // triggers its initialization, before any widget queries it.
-        *COSMIC_TK.write().unwrap() = CosmicTk {
-            interface_font: FontConfig {
-                family: BUNDLED_SANS_FAMILY.to_owned(),
-                weight: font::Weight::Normal,
-                stretch: font::Stretch::Normal,
-                style: font::Style::Normal,
-            },
-            monospace_font: FontConfig {
-                family: BUNDLED_MONO_FAMILY.to_owned(),
-                weight: font::Weight::Normal,
-                stretch: font::Stretch::Normal,
-                style: font::Style::Normal,
-            },
-            ..CosmicTk::default()
-        };
-
         // Register the bundled font bytes in the global FontSystem so that
-        // the family names above resolve to known bytes on every machine,
-        // not to whatever version of those fonts happens to be installed.
+        // the family names resolve to known bytes on every machine, not to
+        // whatever version of those fonts happens to be installed.
         let mut fs = font_system().write().unwrap();
         for font in BUNDLED_FONTS {
             fs.load_font(Cow::Borrowed(*font));
         }
+        pin_theme_font_families(fs.raw().db_mut());
 
         // Pin the generic font families to bundled ones, so text using
         // Family::Serif / SansSerif / Monospace (e.g. document viewers with a
@@ -162,6 +149,47 @@ fn setup_temporary_test_configuration() {
         db.set_cursive_family(BUNDLED_SANS_FAMILY);
         db.set_fantasy_family(BUNDLED_SANS_FAMILY);
     });
+}
+
+/// Makes the families named by libcosmic's built-in themes resolve to the
+/// bundled faces, in this process's in-memory font database only.
+///
+/// The interface family ("Open Sans") is not bundled, so the bundled Noto
+/// Sans faces are registered again under that name. Host faces carrying
+/// either theme family are removed, so a locally installed copy can never
+/// be picked instead of the bundled bytes.
+fn pin_theme_font_families(db: &mut fontdb::Database) {
+    let is_bundled = |face: &fontdb::FaceInfo| matches!(face.source, fontdb::Source::Binary(_));
+    let has_family = |face: &fontdb::FaceInfo, name: &str| {
+        face.families.iter().any(|(family, _)| family == name)
+    };
+
+    let host_faces: Vec<fontdb::ID> = db
+        .faces()
+        .filter(|face| !is_bundled(face))
+        .filter(|face| {
+            has_family(face, DEFAULT_FONT_FAMILY) || has_family(face, DEFAULT_MONOSPACE_FONT_FAMILY)
+        })
+        .map(|face| face.id)
+        .collect();
+    for id in host_faces {
+        db.remove_face(id);
+    }
+
+    let aliases: Vec<fontdb::FaceInfo> = db
+        .faces()
+        .filter(|face| is_bundled(face) && has_family(face, BUNDLED_SANS_FAMILY))
+        .map(|face| fontdb::FaceInfo {
+            families: vec![(
+                DEFAULT_FONT_FAMILY.to_owned(),
+                fontdb::Language::English_UnitedStates,
+            )],
+            ..face.clone()
+        })
+        .collect();
+    for alias in aliases {
+        db.push_face_info(alias);
+    }
 }
 
 /// The default font passed to the renderer backend.
